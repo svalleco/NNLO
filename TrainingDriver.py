@@ -32,18 +32,18 @@ def add_master_option(parser):
     parser.add_argument('--master-gpu',help='master process should get a gpu',
             action='store_true', dest='master_gpu')
     parser.add_argument('--synchronous',help='run in synchronous mode',action='store_true')
-    
+
 def add_worker_options(parser):
     parser.add_argument('--worker-optimizer',help='optimizer for workers to use',
             dest='worker_optimizer', default='adam')
     parser.add_argument('--worker-optimizer-params',help='worker optimizer parameters (string representation of a dict)',
             dest='worker_optimizer_params', default='{}')
-    
-    
+
+
 def add_gem_options(parser):
     parser.add_argument('--gem-lr',help='learning rate for GEM',type=float,default=0.01, dest='gem_lr')
     parser.add_argument('--gem-momentum',help='momentum for GEM',type=float, default=0.9, dest='gem_momentum')
-    parser.add_argument('--gem-kappa',help='Proxy amplification parameter for GEM',type=float, default=2.0, dest='gem_kappa')    
+    parser.add_argument('--gem-kappa',help='Proxy amplification parameter for GEM',type=float, default=2.0, dest='gem_kappa')
 
 def add_easgd_options(parser):
     parser.add_argument('--elastic-force',help='beta parameter for EASGD',type=float,default=0.9)
@@ -67,10 +67,10 @@ def add_target_options(parser):
                         dest='early_stopping', help='patience for early stopping')
     parser.add_argument('--target-metric', default=None,
                         dest='target_metric', help='Passing configuration for a target metric')
-    
+
 
 def make_train_parser():
-    parser = argparse.ArgumentParser()    
+    parser = argparse.ArgumentParser()
     parser.add_argument('--timeline',help='Record timeline of activity', action='store_true')
     add_train_options(parser)
 
@@ -80,17 +80,17 @@ def add_checkpoint_options(parser):
     parser.add_argument('--restore', help='pass a file to retore the variables from', default=None)
     parser.add_argument('--checkpoint', help='Base name of the checkpointing file. If omitted no checkpointing will be done', default=None)
     parser.add_argument('--checkpoint-interval', help='Number of epochs between checkpoints', default=5, type=int, dest='checkpoint_interval')
-    
+
 def add_train_options(parser):
     parser.add_argument('--verbose',help='display metrics for each training batch',action='store_true')
     parser.add_argument('--monitor',help='Monitor cpu and gpu utilization', action='store_true')
 
     parser.add_argument('--backend', help='specify the backend to be used', choices= ['keras','torch'],default='keras')
     parser.add_argument('--thread_validation', help='run a single process', action='store_true')
-    
+
     # model arguments
     parser.add_argument('--model', help='File containing model architecture (serialized in JSON/pickle, or provided in a .py file')
-    parser.add_argument('--trial-name', help='descriptive name for trial', 
+    parser.add_argument('--trial-name', help='descriptive name for trial',
             default='train', dest='trial_name')
 
     # training data arguments
@@ -100,10 +100,10 @@ def add_train_options(parser):
             default='features', dest='features_name')
     parser.add_argument('--labels-name', help='name of HDF5 dataset with output labels',
             default='labels', dest='labels_name')
-    
+
     parser.add_argument('--batch', help='batch size', default=100, type=int)
 
-    
+
 
     # configuration of network topology
     parser.add_argument('--n-masters', dest='n_masters', help='number of master processes', default=1, type=int)
@@ -120,7 +120,7 @@ def add_train_options(parser):
 
     add_worker_options(parser)
 
-    parser.add_argument('--sync-every', help='how often to sync weights with master', 
+    parser.add_argument('--sync-every', help='how often to sync weights with master',
             default=1, type=int, dest='sync_every')
     parser.add_argument('--mode',help='Mode of operation.'
                         'One of "downpour" (Downpour), "easgd" (Elastic Averaging SGD) or "gem" (Gradient Energy Matching)',default='gem',choices=['downpour','easgd','gem'])
@@ -129,16 +129,16 @@ def add_train_options(parser):
     add_gem_options(parser)
     add_easgd_options(parser)
     add_downpour_options(parser)
-    
+
     add_loader_options(parser)
-    
+
     add_log_option(parser)
     add_checkpoint_options(parser)
 
 def make_loader( args, features_name, labels_name, train_list):
     data = H5Data( batch_size=args.batch,
                    cache = args.caching_dir,
-                   copy_command = args.copy_command,                   
+                   copy_command = args.copy_command,
                    preloading = args.data_preload,
                    features_name=features_name,
                    labels_name=labels_name,
@@ -146,7 +146,7 @@ def make_loader( args, features_name, labels_name, train_list):
     # We initialize the Data object with the training data list
     # so that we can use it to count the number of training examples
     data.set_full_file_names( train_list )
-    
+    data.set_file_names( train_list )
     return data
 
 def make_model_weight(args, use_torch):
@@ -162,9 +162,9 @@ def make_model_weight(args, use_torch):
                 model_weights = args.restore +'.model_w'
             else:
                 model_weights = args.restore + '.model'
-                
+
     return model_weights
-                        
+
 def make_algo( args, use_tf, comm, validate_every ):
     args_opt = args.optimizer
     if use_tf:
@@ -173,15 +173,15 @@ def make_algo( args, use_tf, comm, validate_every ):
     else:
         if not args_opt.endswith("torch"):
             args_opt = args_opt + 'torch'
-            
+
     if args.mode == 'easgd':
         algo = Algo(None, loss=args.loss, validate_every=validate_every,
                 mode='easgd', sync_every=args.sync_every,
                 worker_optimizer=args.worker_optimizer,
                 worker_optimizer_params=args.worker_optimizer_params,
                 elastic_force=args.elastic_force/(max(1,comm.Get_size()-1)),
-                elastic_lr=args.elastic_lr, 
-                elastic_momentum=args.elastic_momentum) 
+                elastic_lr=args.elastic_lr,
+                elastic_momentum=args.elastic_momentum)
     elif args.mode == 'gem':
         algo = Algo('gem', loss=args.loss, validate_every=validate_every,
                 mode='gem', sync_every=args.sync_every,
@@ -205,7 +205,7 @@ def make_train_val_lists(m_module, args):
         train_list = m_module.get_train()
     else:
         logging.info("no training data provided")
-        
+
     if args.val_data:
         with open(args.val_data) as val_list_file:
             val_list = [ s.strip() for s in val_list_file.readlines() ]
@@ -218,7 +218,7 @@ def make_train_val_lists(m_module, args):
         logging.error("No training data provided")
     if not val_list:
         logging.error("No validation data provided")
-    return (train_list, val_list) 
+    return (train_list, val_list)
 
 def make_features_labels(m_module, args):
     features_name = m_module.get_features() if m_module is not None and hasattr(m_module,"get_features") else args.features_name
@@ -227,13 +227,13 @@ def make_features_labels(m_module, args):
 
 if __name__ == '__main__':
     parser = make_train_parser()
-    args = parser.parse_args()    
+    args = parser.parse_args()
     initialize_logger(filename=args.log_file, file_level=args.log_level, stream_level=args.log_level)
 
     a_backend = args.backend
     if 'torch' in args.model:
         a_backend = 'torch'
-        
+
     m_module = __import__(args.model.replace('.py','').replace('/', '.'), fromlist=[None]) if '.py' in args.model else None
     (features_name, labels_name) = make_features_labels(m_module, args)
     (train_list, val_list) = make_train_val_lists(m_module, args)
@@ -268,7 +268,7 @@ if __name__ == '__main__':
             visible_device_list = device[-1] if 'gpu' in device else '')
         gpu_options=K.tf.GPUOptions(
             per_process_gpu_memory_fraction=0.0,
-            allow_growth = True,)     
+            allow_growth = True,)
         #NTHREADS=(2,1)
         NTHREADS=None
         if NTHREADS is None:
@@ -280,10 +280,10 @@ if __name__ == '__main__':
             K.set_session( K.tf.Session( config=K.tf.ConfigProto(
                 allow_soft_placement=True, log_device_placement=False,
                 gpu_options=gpu_options,
-                intra_op_parallelism_threads=NTHREADS[0], 
+                intra_op_parallelism_threads=NTHREADS[0],
                 inter_op_parallelism_threads=NTHREADS[1],
             ) ) )
-        
+
 
         model_builder = ModelTensorFlow( comm, source=args.model, weights=model_weights)
 
@@ -292,15 +292,15 @@ if __name__ == '__main__':
 
     # Some input arguments may be ignored depending on chosen algorithm
     algo = make_algo( args, use_tf, comm, validate_every=int(data.count_data()/args.batch ))
-    
+
     if args.restore:
         algo.load(args.restore)
 
     # Creating the MPIManager object causes all needed worker and master nodes to be created
     manager = MPIManager( comm=comm, data=data, algo=algo, model_builder=model_builder,
-                          num_epochs=args.epochs, train_list=train_list, val_list=val_list, 
+                          num_epochs=args.epochs, train_list=train_list, val_list=val_list,
                           num_masters=args.n_masters, num_processes=args.n_processes,
-                          synchronous=args.synchronous, 
+                          synchronous=args.synchronous,
                           verbose=args.verbose, monitor=args.monitor,
                           early_stopping=args.early_stopping,
                           target_metric=args.target_metric,
@@ -321,12 +321,12 @@ if __name__ == '__main__':
         logging.debug('Training configuration: %s', algo.get_config())
 
         t_0 = time()
-        histories = manager.process.train() 
+        histories = manager.process.train()
         delta_t = time() - t_0
         logging.info("Training finished in {0:.3f} seconds".format(delta_t))
 
         manager.process.record_details(json_name,
-                                       meta={"args":vars(args)})            
+                                       meta={"args":vars(args)})
         logging.info("Wrote trial information to {0}".format(json_name))
         manager.close()
 
